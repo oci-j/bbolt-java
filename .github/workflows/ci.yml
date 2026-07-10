@@ -56,6 +56,25 @@ jobs:
       - name: Generate coverage report
         run: mvn -B verify jacoco:report
 
+      - name: Print coverage summary
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          import os
+          jacoco_xml = 'target/site/jacoco/jacoco.xml'
+          if not os.path.exists(jacoco_xml):
+              print('JaCoCo XML report not found')
+              exit(0)
+          root = ET.parse(jacoco_xml).getroot()
+          for counter in root.findall('counter'):
+              if counter.get('type') in ('LINE', 'BRANCH'):
+                  missed = int(counter.get('missed', 0))
+                  covered = int(counter.get('covered', 0))
+                  total = missed + covered
+                  percent = (covered / total * 100) if total > 0 else 0
+                  print(f"{counter.get('type')}: {covered}/{total} ({percent:.2f}%)")
+          PY
+
       - name: Upload coverage report
         uses: actions/upload-artifact@v7
         with:
