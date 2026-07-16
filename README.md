@@ -1,5 +1,7 @@
 # bbolt-java
 
+[![Coverage](https://img.shields.io/endpoint?url=https://oci-j.github.io/bbolt-java/coverage.json)](https://oci-j.github.io/bbolt-java/report/coverage.html)
+
 A minimal, read-only Java reader for [etcd-io/bbolt](https://github.com/etcd-io/bbolt) database files. It does not depend on the native bbolt library and can be used to inspect bbolt databases directly from the JVM.
 
 ## Features

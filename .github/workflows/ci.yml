@@ -82,6 +82,60 @@ jobs:
           path: target/site/jacoco/
           retention-days: 7
 
+  coverage-pages:
+    name: Deploy coverage report to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: coverage
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+    steps:
+      - name: Download coverage report
+        uses: actions/download-artifact@v8
+        with:
+          name: coverage-report
+          path: coverage-report
+
+      - name: Generate coverage badge JSON
+        run: |
+          mkdir -p pages/report
+          python3 - <<'PY'
+          import json
+          import xml.etree.ElementTree as ET
+          root = ET.parse('coverage-report/jacoco.xml').getroot()
+          pct = 0
+          for counter in root.findall('counter'):
+              if counter.get('type') == 'INSTRUCTION':
+                  covered = int(counter.get('covered', 0))
+                  missed = int(counter.get('missed', 0))
+                  total = covered + missed
+                  pct = round(covered / total * 100) if total > 0 else 0
+                  break
+          color = 'green' if pct >= 80 else 'yellow' if pct >= 60 else 'red'
+          with open('pages/coverage.json', 'w') as f:
+              json.dump({
+                  "schemaVersion": 1,
+                  "label": "coverage",
+                  "message": f"{pct}%",
+                  "color": color
+              }, f)
+          print(f"coverage: {pct}% ({color})")
+          PY
+          cp -R coverage-report/* pages/report/
+          mv pages/report/index.html pages/report/coverage.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages/
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
+
   results:
     name: CI results
     runs-on: ubuntu-latest
