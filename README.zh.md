@@ -1,19 +1,19 @@
 # bbolt-java
 
-> **English** | [简体中文](README.zh.md)
+> [English](README.md) | **简体中文**
 
 [![Coverage](https://img.shields.io/endpoint?url=https://oci-j.github.io/bbolt-java/coverage.json)](https://oci-j.github.io/bbolt-java/report/coverage.html)
 
-A minimal, read-only Java reader for [etcd-io/bbolt](https://github.com/etcd-io/bbolt) database files. It does not depend on the native bbolt library and can be used to inspect bbolt databases directly from the JVM.
+一个极简的只读 Java 读取器，用于读取 [etcd-io/bbolt](https://github.com/etcd-io/bbolt) 数据库文件。它不依赖原生 bbolt 库，可以直接在 JVM 上检查 bbolt 数据库。
 
-## Features
+## 特性
 
-- Read-only access to bbolt database files.
-- No native dependencies.
-- Supports bucket traversal, key/value lookup, and cursor iteration.
-- Works with Java 17+.
+- 只读访问 bbolt 数据库文件。
+- 无原生依赖。
+- 支持 bucket 遍历、键值查找和游标迭代。
+- 需要 Java 17+。
 
-## Maven Dependency
+## Maven 依赖
 
 ```xml
 <dependency>
@@ -23,9 +23,9 @@ A minimal, read-only Java reader for [etcd-io/bbolt](https://github.com/etcd-io/
 </dependency>
 ```
 
-## Usage
+## 用法
 
-### Open a Database
+### 打开数据库
 
 ```java
 import com.xenoamess.bbolt.BboltDB;
@@ -53,7 +53,7 @@ try (BboltDB db = BboltDB.open(Paths.get("/var/lib/docker/containerd/daemon/io.c
 }
 ```
 
-### Iterate over a Bucket
+### 遍历 Bucket
 
 ```java
 try (BboltDB db = BboltDB.open(path);
@@ -66,31 +66,31 @@ try (BboltDB db = BboltDB.open(path);
 }
 ```
 
-## Supported Schema Paths
+## 支持的 Schema 路径
 
-The library itself is generic, but the test fixtures and primary use case target containerd's `meta.db` layout. The commonly used paths include:
+本库本身是通用的，但测试夹具和主要使用场景面向 containerd 的 `meta.db` 布局。常用路径包括：
 
 - `v1/moby/images/<image-name>/target/digest`
 - `v1/moby/images/<image-name>/target/mediatype`
 
-These paths are used to read image metadata from containerd's metadata v1 bbolt store.
+这些路径用于从 containerd 的 metadata v1 bbolt 存储中读取镜像元数据。
 
-## Building
+## 构建
 
 ```bash
 mvn -B verify
 ```
 
-## Contributing
+## 贡献
 
-This repository uses Dependabot for dependency updates and a GitHub Actions workflow to automatically merge patch/minor version bumps.
-The auto-merge workflow requires a Dependabot secret named `MYTOKEN` with the following permissions:
+本仓库使用 Dependabot 进行依赖更新，并通过 GitHub Actions 工作流自动合并 patch/minor 版本升级。
+auto-merge 工作流需要一个名为 `MYTOKEN` 的 Dependabot secret，权限如下：
 
-- `contents: write` (to merge the pull request)
-- `pull-requests: write` (to enable auto-merge and approve)
+- `contents: write`（用于合并 PR）
+- `pull-requests: write`（用于开启 auto-merge 和审批）
 
-For more details, see `.github/workflows/auto-merge.yml`.
+更多细节见 `.github/workflows/auto-merge.yml`。
 
-## License
+## 许可证
 
-TBD
+待定
