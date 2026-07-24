@@ -189,11 +189,14 @@ class BboltDBAdvancedTest {
         Path copy = tempDir.resolve("invalid-magic.db");
         Files.copy(fixture("meta.db"), copy);
         try (RandomAccessFile raf = new RandomAccessFile(copy.toFile(), "rw")) {
-            // meta.magic at file offset pageHeaderSize + 0
+            // meta.magic at file offset pageHeaderSize + 0, on both meta pages
             raf.seek(16);
             raf.writeInt(0xDEADBEEF);
+            raf.seek(4096 + 16);
+            raf.writeInt(0xDEADBEEF);
         }
-        assertThrows(BboltException.class, () -> BboltDB.open(copy));
+        BboltException e = assertThrows(BboltException.class, () -> BboltDB.open(copy));
+        assertTrue(e.getMessage().contains("invalid bbolt magic"), e.getMessage());
     }
 
     @Test
@@ -201,11 +204,18 @@ class BboltDBAdvancedTest {
         Path copy = tempDir.resolve("invalid-checksum.db");
         Files.copy(fixture("meta.db"), copy);
         try (RandomAccessFile raf = new RandomAccessFile(copy.toFile(), "rw")) {
-            // meta.pgid at file offset pageHeaderSize + 40 = 56
+            // meta.pgid at file offset pageHeaderSize + 40 = 56, on both meta pages
             raf.seek(56);
-            raf.write(0x42);
+            int original0 = raf.read();
+            raf.seek(56);
+            raf.write(original0 ^ 0xFF);
+            raf.seek(4096 + 56);
+            int original1 = raf.read();
+            raf.seek(4096 + 56);
+            raf.write(original1 ^ 0xFF);
         }
-        assertThrows(BboltException.class, () -> BboltDB.open(copy));
+        BboltException e = assertThrows(BboltException.class, () -> BboltDB.open(copy));
+        assertTrue(e.getMessage().contains("checksum"), e.getMessage());
     }
 
     @Test

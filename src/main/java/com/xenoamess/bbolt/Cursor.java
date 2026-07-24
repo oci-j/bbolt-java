@@ -170,7 +170,11 @@ public class Cursor {
             if (id != 0) {
                 throw new BboltException("inline bucket accessed with non-zero page id: " + id);
             }
-            return bucket.inlinePage();
+            Page inline = bucket.inlinePage();
+            if (inline == null) {
+                throw new BboltException("inline bucket has no inline page data");
+            }
+            return inline;
         }
         return bucket.transaction().readPage(id);
     }

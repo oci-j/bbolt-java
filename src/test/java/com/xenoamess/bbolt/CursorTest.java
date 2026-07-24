@@ -25,11 +25,6 @@ class CursorTest {
         try (BboltDB db = BboltDB.open(fixturePath());
              ReadOnlyTransaction tx = db.beginReadOnly()) {
             Set<String> names = new HashSet<>();
-            tx.getRootBucket().forEachBucket(b -> {
-                // bucket names are empty here because forEachBucket passes Bucket objects
-                // not names; we use cursor directly to capture names
-            });
-
             Cursor cursor = tx.getRootBucket().cursor();
             for (Cursor.Entry entry = cursor.first(); entry != null; entry = cursor.next()) {
                 assertTrue(entry.isBucket(), "root entries should be buckets");

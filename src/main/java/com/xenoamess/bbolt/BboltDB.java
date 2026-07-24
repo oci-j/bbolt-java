@@ -1,5 +1,6 @@
 package com.xenoamess.bbolt;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -7,6 +8,8 @@ import java.nio.ByteOrder;
 import java.nio.file.Path;
 
 public class BboltDB implements AutoCloseable {
+
+    private static final int[] CANDIDATE_PAGE_SIZES = { 4096, 8192, 16384, 32768, 65536 };
 
     private final Path path;
     private final RandomAccessFile file;
@@ -23,46 +26,69 @@ public class BboltDB implements AutoCloseable {
     public static BboltDB open(Path path) throws IOException {
         RandomAccessFile file = new RandomAccessFile(path.toFile(), "r");
         try {
-            // Read the first 4 KB, which is enough to parse meta page 0 and obtain pageSize.
-            byte[] initial = new byte[4096];
-            file.readFully(initial);
-            ByteBuffer bb0 = ByteBuffer.wrap(initial).order(ByteOrder.LITTLE_ENDIAN);
-            Page p0 = new Page(bb0, 0);
-            Meta m0 = p0.meta();
-            if (!m0.isValid()) {
-                throw new BboltException("invalid meta page 0 at " + path);
-            }
-
-            int pageSize = m0.pageSize();
-
-            byte[] buf1 = new byte[pageSize];
-            file.seek(pageSize);
-            file.readFully(buf1);
-            ByteBuffer bb1 = ByteBuffer.wrap(buf1).order(ByteOrder.LITTLE_ENDIAN);
-            Page p1 = new Page(bb1, 1);
-            Meta m1 = p1.meta();
-
-            Meta meta = chooseMeta(m0, m1);
-            return new BboltDB(path, file, pageSize, meta);
+            Meta meta = readMeta(file, path);
+            return new BboltDB(path, file, meta.pageSize(), meta);
         } catch (Exception e) {
             file.close();
             throw e;
         }
     }
 
+    private static Meta readMeta(RandomAccessFile file, Path path) throws IOException {
+        // Read the first 4 KB, which is enough to parse meta page 0 and obtain pageSize.
+        byte[] initial = new byte[4096];
+        try {
+            file.readFully(initial);
+        } catch (EOFException e) {
+            throw new BboltException("file is too small to be a bbolt database: " + path, e);
+        }
+        ByteBuffer bb0 = ByteBuffer.wrap(initial).order(ByteOrder.LITTLE_ENDIAN);
+        Meta m0 = new Page(bb0, 0).meta();
+
+        if (m0.isValid()) {
+            Meta m1 = readMetaPage(file, m0.pageSize());
+            return chooseMeta(m0, m1);
+        }
+
+        // Meta page 0 is damaged (e.g. torn write during a crash). bbolt writes
+        // the two meta pages alternately, so meta page 1 may still be intact;
+        // probe the common page sizes to locate and validate it.
+        BboltException diagnosis = diagnosisOf(m0);
+        for (int candidate : CANDIDATE_PAGE_SIZES) {
+            Meta m1 = readMetaPage(file, candidate);
+            if (m1 != null && m1.isValid()) {
+                return m1;
+            }
+        }
+        throw new BboltException("no valid meta page found at " + path + ": " + diagnosis.getMessage(), diagnosis);
+    }
+
+    private static Meta readMetaPage(RandomAccessFile file, int pageSize) throws IOException {
+        byte[] buf = new byte[pageSize];
+        try {
+            file.seek(pageSize);
+            file.readFully(buf);
+        } catch (EOFException e) {
+            return null;
+        }
+        ByteBuffer bb = ByteBuffer.wrap(buf).order(ByteOrder.LITTLE_ENDIAN);
+        return new Page(bb, 1).meta();
+    }
+
+    private static BboltException diagnosisOf(Meta meta) {
+        try {
+            meta.validate();
+        } catch (BboltException e) {
+            return e;
+        }
+        return new BboltException("meta page is invalid");
+    }
+
     private static Meta chooseMeta(Meta m0, Meta m1) {
-        boolean valid0 = m0.isValid();
-        boolean valid1 = m1.isValid();
-        if (valid0 && valid1) {
-            return m0.txid() >= m1.txid() ? m0 : m1;
-        }
-        if (valid0) {
-            return m0;
-        }
-        if (valid1) {
+        if (m1 != null && m1.isValid() && m1.txid() > m0.txid()) {
             return m1;
         }
-        throw new BboltException("both meta pages are invalid");
+        return m0;
     }
 
     public Path path() {
